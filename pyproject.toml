@@ -10,6 +10,7 @@ requires-python = ">=3.12"
 dependencies = [
     "gherkin-official>=32.1.2",
     "pydantic>=2.11.5",
+    "robotframework>=7.3",
 ]
 
 [project.scripts]
