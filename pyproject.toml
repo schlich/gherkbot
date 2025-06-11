@@ -1,11 +1,9 @@
 [project]
 name = "gherkbot"
-version = "0.1.1"
+version = "0.1.2"
 description = "A tool to convert Gherkin feature files to Robot Framework format."
 readme = "README.md"
-authors = [
-    { name = "schlich", email = "ty.schlich@gmail.com" }
-]
+authors = [{ name = "schlich", email = "ty.schlich@gmail.com" }]
 requires-python = ">=3.12"
 dependencies = [
     "gherkin-official>=32.1.2",
@@ -55,6 +53,4 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-addopts = [
-    "--import-mode=importlib"
-]
+addopts = ["--import-mode=importlib"]
