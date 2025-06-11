@@ -1,0 +1,41 @@
+direction: right
+# Shapes
+Input: ".feature file (Raw Text)" {
+  shape: document
+  tooltip: "The raw Gherkin text content from a .feature file"
+}
+Lexer: "Lexical Analyzer (Tokenizer)" {
+  shape: process
+  tooltip: "Scans the input and converts it into a sequence of tokens"
+}
+Tokens: "Token Stream" {
+  shape: data
+  tooltip: "A sequence of recognized Gherkin keywords, text, and symbols"
+}
+Parser_Processor: "Syntax Analyzer (Parser)" { # Renamed from Parser to avoid D2 keyword conflict
+  shape: process
+  tooltip: "Applies grammar rules to the token stream to build a structured representation"
+}
+Grammar: "Gherkin Grammar Rules" {
+  shape: paralelogram
+  tooltip: "The defined syntax and structure of the Gherkin language"
+}
+AST: "Abstract Syntax Tree (AST)" {
+  shape: data
+  tooltip: "A hierarchical, structured representation of the Gherkin document"
+}
+
+# Connections
+Input -> Lexer: "Reads"
+Lexer -> Tokens: "Produces"
+Tokens -> Parser_Processor: "Feeds into"
+Grammar -> Parser_Processor: "Guides"
+Parser_Processor -> AST: "Generates"
+
+# Styling
+Lexer.style.fill: "#D1E8FF"
+Parser_Processor.style.fill: "#D1E8FF"
+Tokens.style.fill: "#FFFFE0"
+AST.style.fill: "#E0FFE0"
+Grammar.style.fill: "#FFDACC"
+Input.style.fill: "#F5F5F5"
