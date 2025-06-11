@@ -182,6 +182,7 @@ dependencies = [
     { name = "gherkin-official" },
     { name = "pydantic" },
     { name = "robotframework" },
+    { name = "typer" },
 ]
 
 [package.dev-dependencies]
@@ -196,7 +197,6 @@ dev = [
     { name = "ruff" },
     { name = "twine" },
     { name = "ty" },
-    { name = "typer" },
 ]
 
 [package.metadata]
@@ -204,6 +204,7 @@ requires-dist = [
     { name = "gherkin-official", specifier = ">=32.1.2" },
     { name = "pydantic", specifier = ">=2.11.5" },
     { name = "robotframework", specifier = ">=7.3" },
+    { name = "typer", specifier = ">=0.16.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -218,7 +219,6 @@ dev = [
     { name = "ruff", specifier = ">=0.11.13" },
     { name = "twine", specifier = ">=6.1.0" },
     { name = "ty" },
-    { name = "typer", extras = ["all"], specifier = ">=0.16.0" },
 ]
 
 [[package]]
