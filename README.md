@@ -34,46 +34,16 @@ Robot Framework can be used with Gherkin in a few ways:
 
 The following diagram illustrates the process of parsing Gherkin `.feature` files:
 
-```d2
-direction: right
-
-# Define Shapes
-Input: ".feature file (Raw Text)" {
-  shape: document
-}
-Lexer: "Lexical Analyzer (Tokenizer)" {
-  shape: process
-}
-Tokens: "Token Stream" {
-  shape: data
-}
-Parser: "Syntax Analyzer (Parser)" {
-  shape: process
-}
-Grammar: "Gherkin Grammar Rules" {
-  shape: stored_data
-  tooltip: "Defines the structure and syntax of the Gherkin language"
-}
-AST: "Abstract Syntax Tree (AST)" {
-  shape: data
-  tooltip: "Hierarchical, structured representation of the Gherkin document"
-}
-
-# Define Connections
-Input -> Lexer : "reads"
-Lexer -> Tokens : "produces"
-Tokens -> Parser : "feeds into"
-Grammar -> Parser : "guides"
-Parser -> AST : "generates"
-
-# Styling (optional, for better readability)
-Lexer.style.fill: "#D5E8D4"
-Parser.style.fill: "#D5E8D4"
-Grammar.style.fill: "#F8CECC"
-Input.style.fill: "#DAE8FC"
-Tokens.style.fill: "#FFE6CC"
-AST.style.fill: "#FFE6CC"
+```mermaid
+graph TD
+    Input[".feature file (Raw Text)"] --> Lexer["Lexical Analyzer (Tokenizer)"]
+    Lexer --> Tokens["Token Stream"]
+    Tokens --> Parser["Syntax Analyzer (Parser)"]
+    Grammar["Gherkin Grammar Rules"] --> Parser
+    Parser --> AST["Abstract Syntax Tree (AST)"]
 ```
+
+(Note: The original D2 source for a similar diagram is available in the `diagrams/gherkin_parser_workflow.d2` file.)
 
 ### Project's Gherkin Parser Implementation
 
