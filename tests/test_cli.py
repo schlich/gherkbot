@@ -216,3 +216,13 @@ Feature: Advanced Gherkin Features
 
     # Check for the final step
     assert "Then the system should process the data correctly" in robot_content
+
+    # Assert that stub keywords are generated
+    assert "*** Keywords ***" in robot_content
+    assert "the following users are registered:" in robot_content
+    assert "# TODO: implement keyword \"the following users are registered:\"." in robot_content
+    assert "I send the following message:" in robot_content
+    assert "# TODO: implement keyword \"I send the following message:\"." in robot_content
+    assert "the system should process the data correctly" in robot_content
+    assert "# TODO: implement keyword \"the system should process the data correctly\"." in robot_content
+    assert robot_content.count("Fail    Not Implemented") == 3

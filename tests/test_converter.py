@@ -28,8 +28,8 @@ def simple_feature_ast() -> GherkinASTModel:
                         keyword="Scenario",
                         name="A simple scenario",
                         steps=[
-                            StepDetailModel(location=LocationModel(line=4, column=7), keyword="Given ", text="a step"),
-                            StepDetailModel(location=LocationModel(line=5, column=7), keyword="When ", text="another step"),
+                            StepDetailModel(location=LocationModel(line=4, column=7), keyword="Given ", text="an initial step"),
+                            StepDetailModel(location=LocationModel(line=5, column=7), keyword="When ", text="an action is taken"),
                             StepDetailModel(location=LocationModel(line=6, column=7), keyword="Then ", text="a final step"),
                         ],
                     )
@@ -43,15 +43,29 @@ def simple_feature_ast() -> GherkinASTModel:
 def test_convert_simple_feature_to_robot(simple_feature_ast: GherkinASTModel):
     expected_robot_output = """*** Settings ***
 Documentation    Feature: Basic Test
-...              As a user
-...              I want to do something
-...              So that I get a result
+...    As a user
+...    I want to do something
+...    So that I get a result
 
 *** Test Cases ***
 A simple scenario
-    Given a step
-    When another step
+    Given an initial step
+    When an action is taken
     Then a final step
+
+*** Keywords ***
+a final step
+    # TODO: implement keyword "a final step".
+    Fail    Not Implemented
+
+an action is taken
+    # TODO: implement keyword "an action is taken".
+    Fail    Not Implemented
+
+an initial step
+    # TODO: implement keyword "an initial step".
+    Fail    Not Implemented
+
 """
     actual_robot_output = convert_ast_to_robot(simple_feature_ast.model_dump(exclude_none=True))
     assert actual_robot_output.strip() == expected_robot_output.strip()
@@ -73,7 +87,7 @@ def feature_with_background_ast() -> object:
                         "keyword": "Background",
                         "name": "",
                         "steps": [
-                            {"location": {"line": 4, "column": 7}, "keyword": "Given ", "text": "a global setup"},
+                            {"location": {"line": 4, "column": 7}, "keyword": "Given ", "text": "an initial setup step"},
                             {"location": {"line": 5, "column": 7}, "keyword": "And ", "text": "another global setup step"},
                         ],
                     }
@@ -85,7 +99,7 @@ def feature_with_background_ast() -> object:
                         "name": "First scenario",
                         "steps": [
                             {"location": {"line": 9, "column": 7}, "keyword": "When ", "text": "I do something"},
-                            {"location": {"line": 10, "column": 7}, "keyword": "Then ", "text": "I expect something"},
+                            {"location": {"line": 10, "column": 7}, "keyword": "Then ", "text": "I do something else"},
                         ],
                     }
                 },
@@ -103,12 +117,29 @@ Test Setup       Run Background Steps
 *** Test Cases ***
 First scenario
     When I do something
-    Then I expect something
+    Then I do something else
 
 *** Keywords ***
 Run Background Steps
-    Given a global setup
+    Given an initial setup step
     And another global setup step
+
+I do something
+    # TODO: implement keyword "I do something".
+    Fail    Not Implemented
+
+I do something else
+    # TODO: implement keyword "I do something else".
+    Fail    Not Implemented
+
+an initial setup step
+    # TODO: implement keyword "an initial setup step".
+    Fail    Not Implemented
+
+another global setup step
+    # TODO: implement keyword "another global setup step".
+    Fail    Not Implemented
+
 """
     actual_robot_output = convert_ast_to_robot(feature_with_background_ast)
     assert actual_robot_output.strip() == expected_robot_output.strip()
@@ -188,19 +219,32 @@ def test_convert_scenario_outline_to_robot(
 ):
     expected_robot_output = """*** Settings ***
 Documentation    Feature: Scenario Outline Example
-Test Template    EatingTemplate
+Test Template    eating Template
 
 *** Test Cases ***
-eating example for 12, 5, 7    12    5    7
+eating - 12, 5, 7    12    5    7
 
-eating example for 20, 5, 15    20    5    15
+eating - 20, 5, 15    20    5    15
 
 *** Keywords ***
-EatingTemplate
+eating Template
     [Arguments]    ${start}    ${eat}    ${left}
     Given there are ${start} cucumbers
     When I eat ${eat} cucumbers
     Then I should have ${left} cucumbers
+
+I eat <eat> cucumbers
+    # TODO: implement keyword "I eat <eat> cucumbers".
+    Fail    Not Implemented
+
+I should have <left> cucumbers
+    # TODO: implement keyword "I should have <left> cucumbers".
+    Fail    Not Implemented
+
+there are <start> cucumbers
+    # TODO: implement keyword "there are <start> cucumbers".
+    Fail    Not Implemented
+
 """
     actual_robot_output = convert_ast_to_robot(scenario_outline_feature_ast)
     assert actual_robot_output.strip() == expected_robot_output.strip()

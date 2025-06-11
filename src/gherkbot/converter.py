@@ -139,159 +139,113 @@ def _format_robot_steps(
 def convert_ast_to_robot(gherkin_ast_data_obj: object) -> str:
     if not gherkin_ast_data_obj:
         return ""
-    gherkin_ast_data = cast(dict[str, str], gherkin_ast_data_obj)  # type: ignore[reportGeneralTypeIssues]
+    gherkin_ast_data = cast(dict[str, str], gherkin_ast_data_obj)
 
-    # Now proceed with Pydantic validation and the rest of the logic
-    parsed_ast = GherkinASTModel.model_validate(gherkin_ast_data)
-
-    if not parsed_ast.feature:
+    try:
+        gherkin_ast = GherkinASTModel.model_validate(gherkin_ast_data)
+    except Exception:
         return ""
 
-    feature = parsed_ast.feature
-    feature_name = feature.name
-    feature_description = feature.description or ""  # Ensure it's a string
+    if not gherkin_ast.feature:
+        return ""
 
+    feature = gherkin_ast.feature
+    unique_keywords = set()
+
+    # --- Settings Section ---
     settings_lines = ["*** Settings ***"]
-    settings_lines.append(f"Documentation    Feature: {feature_name}")
-    if feature_description:  # No need to check for None if default is ""
-        for line in feature_description.strip().split("\n"):
-            settings_lines.append(f"...              {line.strip()}")
+    doc_parts = [f"Feature: {feature.name}"]
+    if feature.description:
+        doc_parts.extend([line.strip() for line in feature.description.strip().split("\n")])
 
-    keyword_definitions: list[tuple[str, list[str], list[str]]] = []
-    test_case_definitions: list[tuple[str, list[str]]] = []
+    if len(doc_parts) > 1:
+        # Join with ... and correct indentation for multi-line descriptions
+        formatted_doc = f"{doc_parts[0]}\n...    " + "\n...    ".join(doc_parts[1:])
+        settings_lines.append(f"Documentation    {formatted_doc}")
+    else:
+        settings_lines.append(f"Documentation    {doc_parts[0]}")
+
+    # --- Data Collection ---
+    test_case_definitions = []
+    keyword_definitions = []
+
+    has_background = any(c.background for c in feature.children)
+    if has_background:
+        settings_lines.append("Test Setup       Run Background Steps")
 
     for child_item in feature.children:
+        # --- Background ---
         if child_item.background:
             bg_data = child_item.background
-            background_steps_raw: list[StepNodeModel] = []
-            if bg_data.steps:
-                background_steps_raw = [
-                    StepNodeModel(keyword=s.keyword.strip(), text=s.text, docString=s.docString, dataTable=s.dataTable)
-                    for s in bg_data.steps
-                ]
-            if background_steps_raw:
-                keyword_definitions.append(
-                    (
-                        "Run Background Steps",
-                        [],
-                        _format_robot_steps(background_steps_raw),
-                    )
-                )
-                settings_lines.append("Test Setup       Run Background Steps")
+            for step in bg_data.steps:
+                unique_keywords.add(step.text)
+            background_steps_raw = [StepNodeModel.model_validate(s.model_dump()) for s in bg_data.steps]
+            keyword_definitions.append(("Run Background Steps", None, _format_robot_steps(background_steps_raw)))
 
-        elif child_item.scenario:
-            template_name: str = ""  # Initialize template_name
+        # --- Scenarios ---
+        if child_item.scenario:
             scenario = child_item.scenario
-            scenario_name = scenario.name
-            scenario_keyword_type = scenario.keyword
+            for step in scenario.steps:
+                unique_keywords.add(step.text)
 
-            if scenario_name:
-                if scenario_keyword_type == "Scenario Outline":
-                    sanitized_scenario_name = re.sub(
-                        r"[^a-zA-Z0-9_]", "_", scenario_name
-                    )
-                    template_name = f"{sanitized_scenario_name.title()}Template"
-                    settings_lines.append(f"Test Template    {template_name}")
+            if scenario.keyword == "Scenario":
+                scenario_steps_raw = [StepNodeModel.model_validate(s.model_dump()) for s in scenario.steps]
+                test_case_definitions.append((scenario.name, _format_robot_steps(scenario_steps_raw)))
 
-                    outline_steps_raw: list[StepNodeModel] = []
-                    if scenario.steps:
-                        outline_steps_raw = [
-                            StepNodeModel(keyword=s.keyword.strip(), text=s.text)
-                            for s in scenario.steps
-                        ]
+            elif scenario.keyword == "Scenario Outline":
+                template_name = f"{scenario.name} Template"
+                settings_lines.append(f"Test Template    {template_name}")
 
-                    example_headers: list[str] = []
-                    examples_data_rows: list[list[str]] = []
-                    if scenario.examples:  # Should be a list
-                        for (
-                            examples_block
-                        ) in scenario.examples:  # Iterate if multiple example blocks
-                            if (
-                                examples_block.tableHeader
-                                and examples_block.tableHeader.cells
-                            ):
-                                example_headers = [
-                                    cell.value
-                                    for cell in examples_block.tableHeader.cells
-                                ]
-                            if examples_block.tableBody:
-                                for row_data in examples_block.tableBody:
-                                    examples_data_rows.append(
-                                        [cell.value for cell in row_data.cells]
-                                    )
-                            # For simplicity, Robot only supports one Test Template per file effectively,
-                            # so we use the headers from the first examples block.
-                            # If multiple example blocks have different headers, this might need adjustment.
-                            # For now, we assume headers are consistent or only first block's headers matter for template.
-                            if example_headers:
-                                break  # Use headers from first block with headers
+                example_headers = []
+                if scenario.examples and scenario.examples[0].tableHeader:
+                    example_headers = [c.value for c in scenario.examples[0].tableHeader.cells]
 
-                    if outline_steps_raw:  # Only define template if there are steps
-                        keyword_definitions.append(
-                            (
-                                template_name,
-                                example_headers,
-                                _format_robot_steps(outline_steps_raw, example_headers),
-                            )
-                        )
+                outline_steps_raw = [StepNodeModel.model_validate(s.model_dump()) for s in scenario.steps]
+                keyword_definitions.append((template_name, example_headers, _format_robot_steps(outline_steps_raw, example_headers)))
 
-                    for data_row_values in examples_data_rows:
-                        example_name_suffix = ", ".join(data_row_values)
-                        # Ensure scenario_name (original from Gherkin) is used for test case name
-                        tc_name = f"{scenario.name} example for {example_name_suffix}"
-                        test_case_definitions.append((tc_name, data_row_values))
-                    # This is the end of the "Scenario Outline" specific logic inside "if scenario_name:"
+                for examples_block in scenario.examples:
+                    for row in examples_block.tableBody:
+                        data_row_values = [c.value for c in row.cells]
+                        test_case_definitions.append((f"{scenario.name} - {', '.join(data_row_values)}", data_row_values))
 
-                if scenario_keyword_type == "Scenario":
-                    # This block now correctly processes regular Scenarios if scenario_name is true
-                    scenario_steps_raw: list[StepNodeModel] = []
-                    if scenario.steps:
-                        scenario_steps_raw = [
-                            StepNodeModel(keyword=s.keyword.strip(), text=s.text, docString=s.docString, dataTable=s.dataTable)
-                            for s in scenario.steps
-                        ]
-                    if scenario_steps_raw:  # Only add test case if there are steps
-                        test_case_definitions.append(
-                            (scenario_name, _format_robot_steps(scenario_steps_raw))
-                        )
-
-    final_output_lines: list[str] = []
-
+    # --- Assemble Final Output ---
+    final_output_lines = []
     if len(settings_lines) > 1:
         final_output_lines.extend(settings_lines)
-        if test_case_definitions or keyword_definitions:
-            final_output_lines.append("")
+        final_output_lines.append("")
 
     if test_case_definitions:
         final_output_lines.append("*** Test Cases ***")
-        for tc_name, tc_content_or_data in test_case_definitions:
-            if tc_content_or_data and tc_content_or_data[0].strip().startswith(
-                ("Given", "When", "Then", "And", "But")
-            ):  # Regular scenario steps
+        for tc_name, tc_content in test_case_definitions:
+            is_regular_scenario = any(line.strip().startswith(("Given", "When", "Then", "And", "But")) for line in tc_content)
+            if is_regular_scenario:
                 final_output_lines.append(tc_name)
-                final_output_lines.extend(tc_content_or_data)
-            else:  # Scenario outline data row
-                data_str = "    ".join(tc_content_or_data)
-                final_output_lines.append(f"{tc_name}    {data_str}")
-            final_output_lines.append("")
-        if final_output_lines and final_output_lines[-1] == "":
-            _ = final_output_lines.pop()
-        if keyword_definitions:
+                final_output_lines.extend(tc_content)
+            else: # It's an outline, content is just data
+                final_output_lines.append(f"{tc_name}    {'    '.join(tc_content)}")
             final_output_lines.append("")
 
-    if keyword_definitions:
+    if keyword_definitions or unique_keywords:
         final_output_lines.append("*** Keywords ***")
+
+    if keyword_definitions:
         for kw_name, kw_args, kw_steps in keyword_definitions:
             final_output_lines.append(kw_name)
             if kw_args:
-                arg_str = "    ".join([f"${{{arg}}}" for arg in kw_args])
-                final_output_lines.append(f"    [Arguments]    {arg_str}")
+                final_output_lines.append(f"    [Arguments]    {'    '.join([f'${{{arg}}}' for arg in kw_args])}")
             final_output_lines.extend(kw_steps)
             final_output_lines.append("")
-        if final_output_lines and final_output_lines[-1] == "":
-            _ = final_output_lines.pop()
+
+    if unique_keywords:
+        defined_keywords = {kw[0] for kw in keyword_definitions}
+        for keyword in sorted(list(unique_keywords)):
+            if keyword not in defined_keywords:
+                final_output_lines.append(keyword)
+                final_output_lines.append(f'    # TODO: implement keyword "{keyword}".')
+                final_output_lines.append("    Fail    Not Implemented")
+                final_output_lines.append("")
 
     while final_output_lines and final_output_lines[-1] == "":
-        _ = final_output_lines.pop()
+        final_output_lines.pop()
 
     return "\n".join(final_output_lines) + "\n" if final_output_lines else ""
