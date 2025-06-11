@@ -61,11 +61,33 @@ def test_convert_output_file(tmp_path):
         assert "Converted to:" in result.stdout
 
 
-def test_convert_file_not_found():
-    with patch("pathlib.Path.exists", return_value=False):
-        result = runner.invoke(app, ["convert", "nonexistent.feature"])
-        assert result.exit_code == 1
-        assert "does not exist" in result.stdout
+def test_convert_file_not_found() -> None:
+    """Test that an error is raised when the input file is not found."""
+    result = runner.invoke(app, ["convert", "non_existent_file.feature"])
+    assert result.exit_code == 1
+    assert "File 'non_existent_file.feature' does not exist." in result.stdout
+
+
+def test_sync_command_e2e(tmp_path: Path) -> None:
+    """End-to-end test for the sync command."""
+    # Arrange
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    input_dir.mkdir()
+
+    # Create a feature file
+    feature_file = input_dir / "test.feature"
+    feature_file.write_text("Feature: E2E Test")
+
+    # Act
+    result = runner.invoke(app, ["sync", str(input_dir), str(output_dir)])
+
+    # Assert
+    assert result.exit_code == 0
+    assert "Sync complete." in result.stdout
+    robot_file = output_dir / "test.robot"
+    assert robot_file.exists()
+    assert "Feature: E2E Test" in robot_file.read_text()
 
 
 def test_convert_parse_error():
@@ -75,3 +97,62 @@ def test_convert_parse_error():
         result = runner.invoke(app, ["convert", "invalid.feature"])
         assert result.exit_code == 1
         assert "Failed to parse" in result.stdout
+
+
+def test_sync_command_e2e_update(tmp_path: Path) -> None:
+    """End-to-end test for the sync command's update functionality."""
+    # Arrange
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    input_dir.mkdir()
+
+    # Create a feature file
+    feature_file = input_dir / "test_update.feature"
+    feature_file.write_text("Feature: Initial Version")
+
+    # Act 1: Initial sync
+    runner.invoke(app, ["sync", str(input_dir), str(output_dir)])
+    robot_file = output_dir / "test_update.robot"
+    assert "Initial Version" in robot_file.read_text()
+
+    # Arrange 2: Modify the feature file
+    import time
+
+    time.sleep(0.1)  # Ensure modification time is different
+    feature_file.write_text("Feature: Updated Version")
+
+    # Act 2: Second sync
+    result = runner.invoke(app, ["sync", str(input_dir), str(output_dir)])
+
+    # Assert 2
+    assert result.exit_code == 0
+    assert "Sync complete." in result.stdout
+    assert "Updated Version" in robot_file.read_text()
+
+
+def test_sync_command_e2e_delete(tmp_path: Path) -> None:
+    """End-to-end test for the sync command's delete functionality."""
+    # Arrange
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    input_dir.mkdir()
+
+    # Create a feature file
+    feature_file = input_dir / "test_delete.feature"
+    feature_file.write_text("Feature: To Be Deleted")
+
+    # Act 1: Initial sync
+    runner.invoke(app, ["sync", str(input_dir), str(output_dir)])
+    robot_file = output_dir / "test_delete.robot"
+    assert robot_file.exists()
+
+    # Arrange 2: Delete the feature file
+    feature_file.unlink()
+
+    # Act 2: Second sync
+    result = runner.invoke(app, ["sync", str(input_dir), str(output_dir)])
+
+    # Assert 2
+    assert result.exit_code == 0
+    assert "Sync complete." in result.stdout
+    assert not robot_file.exists()

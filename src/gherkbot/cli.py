@@ -10,6 +10,7 @@ from rich.syntax import Syntax
 
 from gherkbot.converter import convert_ast_to_robot
 from gherkbot.parser import parse_feature
+from gherkbot.synchronizer import sync_directories
 
 app = typer.Typer(
     name="gherkbot",
@@ -98,6 +99,25 @@ def convert(
         output_file.parent.mkdir(parents=True, exist_ok=True)
         output_file.write_text(robot_code)
         console.print(f"[green]✓[/green] Converted to: {output_file}")
+
+
+@app.command()
+def sync(
+    input_dir: Annotated[
+        Path, typer.Argument(help="The input directory containing .feature files.")
+    ],
+    output_dir: Annotated[
+        Path,
+        typer.Argument(help="The output directory for the generated .robot files."),
+    ],
+) -> None:
+    """Sync .feature files from an input directory to .robot files in an output directory."""
+    try:
+        sync_directories(input_dir, output_dir)
+        console.print("[green]✓[/green] Sync complete.")
+    except Exception as e:
+        console.print(f"[red]Error during sync:[/red] {e}")
+        raise typer.Exit(1) from e
 
 
 if __name__ == "__main__":
