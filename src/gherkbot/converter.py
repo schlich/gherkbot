@@ -20,18 +20,31 @@ class TableRowModel(BaseModel):
     cells: list[CellModel]
 
 
+class DocStringModel(BaseModel):
+    location: LocationModel
+    content: str
+    contentType: str | None = None
+    delimiter: str # Typically """ or ```
+
+class DataTableModel(BaseModel):
+    location: LocationModel
+    rows: list[TableRowModel]
+
 class StepDetailModel(
     BaseModel
 ):  # Represents 's' in list comprehensions from input AST
     location: LocationModel
     keyword: str
     text: str
-    # argument: Optional[Any] = None # For potential future use with data tables/docstrings
+    docString: DocStringModel | None = None
+    dataTable: DataTableModel | None = None
 
 
 class StepNodeModel(BaseModel):  # Simplified structure for _format_robot_steps
     keyword: str
     text: str
+    docString: DocStringModel | None = None
+    dataTable: DataTableModel | None = None
 
 
 class ExamplesModel(BaseModel):
@@ -88,6 +101,9 @@ class GherkinASTModel(BaseModel):
 _ = LocationModel.model_rebuild()
 _ = CellModel.model_rebuild()
 _ = TableRowModel.model_rebuild()
+_ = DocStringModel.model_rebuild()
+_ = DataTableModel.model_rebuild()
+
 _ = StepDetailModel.model_rebuild()
 _ = ExamplesModel.model_rebuild()
 _ = BackgroundModel.model_rebuild()
@@ -108,6 +124,15 @@ def _format_robot_steps(
             for arg_name in arg_names:
                 text = re.sub(f"<{re.escape(arg_name)}>", f"${{{arg_name}}}", text)
         formatted_steps.append(f"    {keyword} {text}")
+
+        if step_data.docString:
+            doc_string_content = step_data.docString.content
+            for line in doc_string_content.splitlines():
+                formatted_steps.append(f"    ...    {line}")
+        if step_data.dataTable:
+            for row in step_data.dataTable.rows:
+                cell_values = [cell.value for cell in row.cells]
+                formatted_steps.append(f"    ...    | {' | '.join(cell_values)} |")
     return formatted_steps
 
 
@@ -141,7 +166,7 @@ def convert_ast_to_robot(gherkin_ast_data_obj: object) -> str:
             background_steps_raw: list[StepNodeModel] = []
             if bg_data.steps:
                 background_steps_raw = [
-                    StepNodeModel(keyword=s.keyword.strip(), text=s.text)
+                    StepNodeModel(keyword=s.keyword.strip(), text=s.text, docString=s.docString, dataTable=s.dataTable)
                     for s in bg_data.steps
                 ]
             if background_steps_raw:
@@ -222,7 +247,7 @@ def convert_ast_to_robot(gherkin_ast_data_obj: object) -> str:
                     scenario_steps_raw: list[StepNodeModel] = []
                     if scenario.steps:
                         scenario_steps_raw = [
-                            StepNodeModel(keyword=s.keyword.strip(), text=s.text)
+                            StepNodeModel(keyword=s.keyword.strip(), text=s.text, docString=s.docString, dataTable=s.dataTable)
                             for s in scenario.steps
                         ]
                     if scenario_steps_raw:  # Only add test case if there are steps

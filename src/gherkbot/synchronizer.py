@@ -10,49 +10,54 @@ def _get_relevant_files(base_dir: Path, extension: str) -> list[Path]:
 
 
 def sync_directories(input_dir: Path, output_dir: Path) -> None:
-    """Synchronizes the .robot files in the output directory with the .feature files in the input directory."""
-    if not output_dir.exists():
-        output_dir.mkdir(parents=True)
+    """Synchronizes a directory of .feature files to a directory of .robot files."""
+    # console.log(f"Starting sync from '{input_dir}' to '{output_dir}'...")
 
-    feature_files = _get_relevant_files(input_dir, ".feature")
-    robot_files = _get_relevant_files(output_dir, ".robot")
+    source_files = _get_relevant_files(input_dir, ".feature")
+    dest_files = _get_relevant_files(output_dir, ".robot")
 
-    feature_files_map = {f.relative_to(input_dir): f for f in feature_files}
-    robot_files_map = {
-        f.relative_to(output_dir).with_suffix(".feature"): f for f in robot_files
-    }
+    source_map = {p.relative_to(input_dir).with_suffix(".robot"): p for p in source_files}
+    dest_map = {p.relative_to(output_dir): p for p in dest_files}
 
-    # --- CREATE / UPDATE ---
-    for relative_path, feature_file in feature_files_map.items():
-        robot_file_path_in_map = robot_files_map.get(relative_path)
-        output_robot_file = output_dir / relative_path.with_suffix(".robot")
+    source_rel_paths = set(source_map.keys())
+    dest_rel_paths = set(dest_map.keys())
 
-        if not robot_file_path_in_map:
-            # Create
-            output_robot_file.parent.mkdir(parents=True, exist_ok=True)
-            feature_content = feature_file.read_text()
-            ast = parse_feature(feature_content)
+    # 1. Create new files
+    paths_to_create = source_rel_paths - dest_rel_paths
+    for rel_path in paths_to_create:
+        source_file = source_map[rel_path]
+        dest_file = output_dir / rel_path
+        dest_file.parent.mkdir(parents=True, exist_ok=True)
+        content = source_file.read_text()
+        ast = parse_feature(content)
+        if ast:
+            robot_content = convert_ast_to_robot(ast)
+            dest_file.write_text(robot_content)
+            # console.log(f"Created: {dest_file}")
+
+    # 2. Delete old files
+    paths_to_delete = dest_rel_paths - source_rel_paths
+    for rel_path in paths_to_delete:
+        dest_file = dest_map[rel_path]
+        dest_file.unlink()
+        # console.log(f"Deleted: {dest_file}")
+        # Clean up empty parent directories
+        try:
+            dest_file.parent.rmdir()
+            # console.log(f"Removed empty directory: {dest_file.parent}")
+        except OSError:
+            pass  # Directory is not empty
+
+    # 3. Update existing files
+    paths_to_update = source_rel_paths.intersection(dest_rel_paths)
+    for rel_path in paths_to_update:
+        source_file = source_map[rel_path]
+        dest_file = dest_map[rel_path]
+
+        if source_file.stat().st_mtime > dest_file.stat().st_mtime:
+            content = source_file.read_text()
+            ast = parse_feature(content)
             if ast:
                 robot_content = convert_ast_to_robot(ast)
-                output_robot_file.write_text(robot_content)
-        elif feature_file.stat().st_mtime > robot_file_path_in_map.stat().st_mtime:
-            # Update
-            feature_content = feature_file.read_text()
-            ast = parse_feature(feature_content)
-            if ast:
-                robot_content = convert_ast_to_robot(ast)
-                robot_file_path_in_map.write_text(robot_content)
-
-    # --- DELETE ---
-    feature_relative_paths = set(feature_files_map.keys())
-    robot_relative_paths_as_feature = set(robot_files_map.keys())
-
-    relative_paths_to_delete = robot_relative_paths_as_feature - feature_relative_paths
-
-    for relative_path in relative_paths_to_delete:
-        robot_file_to_delete = robot_files_map[relative_path]
-        robot_file_to_delete.unlink()
-        parent_dir = robot_file_to_delete.parent
-        if parent_dir != output_dir and not any(parent_dir.iterdir()):
-            parent_dir.rmdir()
-
+                dest_file.write_text(robot_content)
+                # console.log(f"Updated: {dest_file}")

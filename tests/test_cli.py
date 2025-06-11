@@ -156,3 +156,55 @@ def test_sync_command_e2e_delete(tmp_path: Path) -> None:
     assert result.exit_code == 0
     assert "Sync complete." in result.stdout
     assert not robot_file.exists()
+
+
+def test_sync_command_e2e_with_arguments(tmp_path: Path) -> None:
+    """End-to-end test for the sync command with data tables and docstrings."""
+    # Arrange
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "output"
+    input_dir.mkdir()
+
+    feature_content = '''
+Feature: Advanced Gherkin Features
+
+  Scenario: Scenario with Data Table and DocString
+    Given the following users are registered:
+      | name  | email         |
+      | Alice | alice@e.com   |
+      | Bob   | bob@e.com     |
+    When I send the following message:
+      """
+      Hello World!
+      This is a test.
+      """
+    Then the system should process the data correctly
+'''
+    feature_file = input_dir / "advanced.feature"
+    feature_file.write_text(feature_content)
+
+    # Act
+    result = runner.invoke(app, ["sync", str(input_dir), str(output_dir)])
+
+    # Assert
+    assert result.exit_code == 0
+    assert "Sync complete." in result.stdout
+
+    robot_file = output_dir / "advanced.robot"
+    assert robot_file.exists()
+
+    robot_content = robot_file.read_text()
+
+    # Check for data table
+    assert "Given the following users are registered:" in robot_content
+    assert "...    | name | email |" in robot_content
+    assert "...    | Alice | alice@e.com |" in robot_content
+    assert "...    | Bob | bob@e.com |" in robot_content
+
+    # Check for docstring
+    assert "When I send the following message:" in robot_content
+    assert "...    Hello World!" in robot_content
+    assert "...    This is a test." in robot_content
+
+    # Check for the final step
+    assert "Then the system should process the data correctly" in robot_content
