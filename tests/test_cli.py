@@ -1,7 +1,6 @@
 from pathlib import Path
-from unittest.mock import patch, mock_open
+from unittest.mock import patch
 
-import pytest
 from typer.testing import CliRunner
 
 from gherkbot import __version__
@@ -22,16 +21,20 @@ def test_convert_show(capsys):
       Scenario: Test Scenario
         Given a test step
     """
-    
-    with patch("pathlib.Path.exists", return_value=True), \
-         patch("pathlib.Path.read_text", return_value=test_content), \
-         patch("gherkbot.parser.parse_feature") as mock_parse, \
-         patch("gherkbot.converter.convert_ast_to_robot", return_value="*** Test Cases ***\nTest Case\n    Step"):
-        
+
+    with (
+        patch("pathlib.Path.exists", return_value=True),
+        patch("pathlib.Path.read_text", return_value=test_content),
+        patch("gherkbot.parser.parse_feature") as mock_parse,
+        patch(
+            "gherkbot.converter.convert_ast_to_robot",
+            return_value="*** Test Cases ***\nTest Case\n    Step",
+        ),
+    ):
         mock_parse.return_value = {"feature": {"name": "Test Feature"}}
-        
+
         result = runner.invoke(app, ["convert", "test.feature", "--show"])
-        
+
         assert result.exit_code == 0
         # Check for the panel title and test case content in the rich output
         assert "Converted: test.feature" in result.stdout
@@ -46,16 +49,20 @@ def test_convert_output_file(tmp_path):
       Scenario: Test Scenario
         Given a test step
     """
-    
-    with patch("pathlib.Path.exists", return_value=True), \
-         patch("pathlib.Path.read_text", return_value=test_content), \
-         patch("gherkbot.parser.parse_feature") as mock_parse, \
-         patch("gherkbot.converter.convert_ast_to_robot", return_value="*** Test Cases ***\nTest Case\n    Step"):
-        
+
+    with (
+        patch("pathlib.Path.exists", return_value=True),
+        patch("pathlib.Path.read_text", return_value=test_content),
+        patch("gherkbot.parser.parse_feature") as mock_parse,
+        patch(
+            "gherkbot.converter.convert_ast_to_robot",
+            return_value="*** Test Cases ***\nTest Case\n    Step",
+        ),
+    ):
         mock_parse.return_value = {"feature": {"name": "Test Feature"}}
-        
+
         result = runner.invoke(app, ["convert", "test.feature", "-o", str(output_file)])
-        
+
         assert result.exit_code == 0
         assert output_file.exists()
         assert "Converted to:" in result.stdout
@@ -91,9 +98,10 @@ def test_sync_command_e2e(tmp_path: Path) -> None:
 
 
 def test_convert_parse_error():
-    with patch("pathlib.Path.exists", return_value=True), \
-         patch("pathlib.Path.read_text", return_value="invalid"):
-        
+    with (
+        patch("pathlib.Path.exists", return_value=True),
+        patch("pathlib.Path.read_text", return_value="invalid"),
+    ):
         result = runner.invoke(app, ["convert", "invalid.feature"])
         assert result.exit_code == 1
         assert "Failed to parse" in result.stdout
